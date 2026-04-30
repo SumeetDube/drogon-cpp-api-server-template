@@ -1,0 +1,33 @@
+SERVICE:
+  EXTERNAL_API:
+    BASEURL: "http://localhost:8000"
+    MAX_RETRIES: 3
+    BASE_BACKOFF_MS: 200
+    TIMEOUT_SECS: 5
+
+  # Drogon framework configuration. See https://github.com/drogonframework/drogon
+  # for the full list of supported keys.
+  DROGON_CONFIG:
+    listeners:
+      - address: 0.0.0.0
+        port: 5555
+        https: false
+
+    app:
+      threads_num: 4
+      enable_session: false
+      document_root: ./
+      log:
+        log_path: ./logs
+        logfile_base_name: api_server
+        log_size_limit: 10000000
+        log_level: INFO
+
+    db_clients:
+      # host / port / dbname / user / passwd are populated at startup from
+      # POSTGRESQL_* environment variables (see Config.cc).
+      - name: default
+        rdbms: postgresql
+        is_fast: false
+        connection_number: 4
+        timeout: -1.0

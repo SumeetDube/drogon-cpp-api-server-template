@@ -1,0 +1,15 @@
+build/
+.cache/
+logs/
+*.log
+
+# Real env file — copy from .env.example
+.env
+.env.local
+
+# Editor / IDE
+.idea/
+*.swp
+
+# OS
+.DS_Store
