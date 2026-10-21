@@ -1,43 +1,29 @@
 #include "db/Db.h"
 
-#include <drogon/orm/DbClient.h>
 #include <drogon/orm/Result.h>
 #include <exception>
 #include <trantor/utils/Logger.h>
 
 namespace db
 {
-    bool ping(const std::shared_ptr<drogon::orm::Transaction>& transaction,
-              const std::string& traceId)
+    drogon::Task<bool> ping(drogon::orm::DbClientPtr client, std::string traceId)
     {
-        try
+        if (!client)
         {
-            LOG_DEBUG << "[" << traceId << "] DB ping via transaction";
-            drogon::orm::Result result = transaction->execSqlSync("SELECT 1");
-            return !result.empty();
+            LOG_WARN << "[" << traceId << "] DB ping failed: no DB client configured";
+            co_return false;
         }
-        catch (const std::exception& error)
-        {
-            LOG_WARN << "[" << traceId << "] DB ping failed (transaction): "
-                     << error.what();
-            return false;
-        }
-    }
 
-    bool ping(const std::shared_ptr<drogon::orm::DbClient>& client,
-              const std::string& traceId)
-    {
         try
         {
-            LOG_DEBUG << "[" << traceId << "] DB ping via DbClient";
-            drogon::orm::Result result = client->execSqlSync("SELECT 1");
-            return !result.empty();
+            LOG_DEBUG << "[" << traceId << "] DB ping";
+            drogon::orm::Result result = co_await client->execSqlCoro("SELECT 1");
+            co_return !result.empty();
         }
         catch (const std::exception& error)
         {
-            LOG_WARN << "[" << traceId << "] DB ping failed (client): "
-                     << error.what();
-            return false;
+            LOG_WARN << "[" << traceId << "] DB ping failed: " << error.what();
+            co_return false;
         }
     }
 }

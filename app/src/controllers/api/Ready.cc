@@ -8,15 +8,16 @@
 #include "custom_exceptions/ControllerError.h"
 #include "db/Db.h"
 
-void api::v1::ready(const drogon::HttpRequestPtr&,
-                    std::function<void(const drogon::HttpResponsePtr&)>&& callback)
+drogon::Task<drogon::HttpResponsePtr> api::v1::ready(drogon::HttpRequestPtr)
 {
     std::string traceId = drogon::utils::getUuid();
 
     drogon::orm::DbClientPtr client = drogon::app().getDbClient("default");
 
-    if (!db::ping(client, traceId))
+    // Suspends instead of blocking the IO thread; other requests keep being served.
+    if (!co_await db::ping(client, traceId))
     {
+        // Exceptions thrown from coroutine handlers still reach the global exception handler.
         throw ControllerError("DB_NOT_READY", "ERROR",
                               "Database is not reachable",
                               traceId,
@@ -30,5 +31,5 @@ void api::v1::ready(const drogon::HttpRequestPtr&,
             .details = Json::Value(Json::objectValue),
         });
     response->setStatusCode(drogon::k200OK);
-    callback(response);
+    co_return response;
 }
