@@ -1,21 +1,16 @@
 #pragma once
 
-#include <drogon/drogon.h>
 #include <drogon/orm/DbClient.h>
-#include <memory>
+#include <drogon/utils/coroutine.h>
 #include <string>
 
 namespace db
 {
     /**
-     * @brief Pings the database via a transaction. Returns false on any error.
+     * @brief Pings the database without blocking the event loop. Returns false on any error.
+     *
+     * Works for both a DbClient and a Transaction (a Transaction is a DbClient).
+     * Parameters are taken by value: references could dangle across the co_await.
      */
-    bool ping(const std::shared_ptr<drogon::orm::Transaction>& transaction,
-              const std::string& traceId);
-
-    /**
-     * @brief Pings the database via a DbClient. Returns false on any error.
-     */
-    bool ping(const std::shared_ptr<drogon::orm::DbClient>& client,
-              const std::string& traceId);
+    drogon::Task<bool> ping(drogon::orm::DbClientPtr client, std::string traceId);
 }

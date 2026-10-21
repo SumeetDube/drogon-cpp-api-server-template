@@ -23,9 +23,8 @@ namespace api
     void health(const drogon::HttpRequestPtr& request,
                 std::function<void(const drogon::HttpResponsePtr&)>&& callback);
 
-    /// Readiness probe — pings the database. 503 if dependencies are down.
-    void ready(const drogon::HttpRequestPtr& request,
-               std::function<void(const drogon::HttpResponsePtr&)>&& callback);
+    /// Readiness probe — pings the database asynchronously (coroutine). 503 if it's down.
+    drogon::Task<drogon::HttpResponsePtr> ready(drogon::HttpRequestPtr request);
 
     /// Example POST endpoint. Demonstrates auto-bound JSON payload + validation.
     void createItem(const drogon::HttpRequestPtr& request,

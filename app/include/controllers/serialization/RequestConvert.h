@@ -26,15 +26,17 @@ namespace drogon
             return result.value();
         }
 
-        std::string errorMsg = "JSON Validation Failed for " +
-                               std::string(typeid(T).name()) + ": " +
-                               result.error().what();
+        // The reflect-cpp message names the offending field, which the client needs.
+        // The C++ type name is an internal detail, so it only goes to the log.
+        std::string errorMsg = std::string("Invalid request body: ") + result.error().what();
+        std::string traceId  = drogon::utils::getUuid();
 
-        LOG_ERROR << errorMsg;
+        LOG_WARN << "[" << traceId << "] Validation failed for " << typeid(T).name()
+                 << ": " << result.error().what();
         throw ControllerError("VALIDATION_FAILED",
-                              "FATAL",
+                              "ERROR",
                               errorMsg,
-                              drogon::utils::getUuid(),
+                              traceId,
                               drogon::HttpStatusCode::k422UnprocessableEntity);
     }
 

@@ -31,6 +31,8 @@ void exceptionHandler(const std::exception& error,
         return;
     }
 
+    // Unexpected errors: full detail goes to the log only. The client gets a generic
+    // message plus the trace ID, so internals (SQL, paths, library messages) never leak.
     std::string traceId = drogon::utils::getUuid();
     LOG_ERROR << "[" << traceId << "] Unhandled exception: " << error.what();
 
@@ -40,7 +42,7 @@ void exceptionHandler(const std::exception& error,
             .traceId = traceId,
             .details = Details{
                 .errorCode    = "INTERNAL_SERVER_ERROR",
-                .errorMessage = error.what(),
+                .errorMessage = "Internal server error. Quote the trace_id when reporting it.",
                 .timestampMs  = timeutils::getCurrentTimestampMs(),
             },
         });

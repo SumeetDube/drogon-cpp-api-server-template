@@ -6,7 +6,39 @@ on:
   pull_request:
 
 jobs:
-  docker:
+  test:
+    name: Tests (${{ matrix.sanitizer || 'no sanitizer' }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # "" = plain build, address = ASan + UBSan, thread = TSan
+        sanitizer: ["", "address", "thread"]
+    steps:
+      - uses: actions/checkout@v4
+
+      # Sanitizer runtimes can crash on the runner kernel's high ASLR entropy
+      # ("unexpected memory mapping"); 28 bits is the commonly used workaround.
+      - name: Lower ASLR entropy for sanitizers
+        if: matrix.sanitizer != ''
+        run: sudo sysctl vm.mmap_rnd_bits=28
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and run unit tests
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          target: test
+          push: false
+          build-args: SANITIZER=${{ matrix.sanitizer }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  image:
+    name: Runtime image
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

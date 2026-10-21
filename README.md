@@ -6,16 +6,17 @@ A minimal, production-leaning template for building a REST API server in C++ on 
 
 - **Drogon HTTP server** with a versioned controller (`api::v1`) and three example endpoints under `/api/v1/`: `/health`, `/ready`, `POST /items`.
 - **YAML configuration** loaded via `yaml-cpp`, with DB credentials sourced from environment variables.
-- **PostgreSQL** support through Drogon's ORM, plus a tiny `db::ping` helper.
+- **PostgreSQL** support through Drogon's ORM, plus a non-blocking `db::ping` coroutine. `/ready` is a C++20 coroutine handler, so the DB check never blocks an IO thread.
 - **Reflect-cpp** + a generic `convertAndValidate<T>()` helper, with a `drogon::fromRequest<T>` specialization that auto-binds JSON bodies to typed structs.
-- **Global exception handler** that turns any `ControllerError` (or unhandled `std::exception`) into a structured `FailedResponse` JSON envelope with the right HTTP status — including errors thrown during JSON parsing, before the controller body even runs.
+- **Global exception handler** that turns any `ControllerError` (or unhandled `std::exception`) into a structured `FailedResponse` JSON envelope with the right HTTP status — including errors thrown during JSON parsing, before the controller body even runs, and from coroutine handlers. Unexpected errors are logged in full but return only a generic message and a trace ID, so internals never leak to clients.
 - **Structured request/response logging** via Drogon advices (`preRouting`, `postHandling`, `beginning`).
-- **Outbound HTTP client** (`ApiClient`) with retry + exponential backoff for calling upstream services.
+- **Outbound HTTP client** (`ApiClient`) for calling upstream services: retries timeouts, network failures and 5xx with exponential backoff + jitter. Fire-and-forget (`put`/`get`) or awaitable (`co_await putCoro(...)`/`getCoro(...)`) when you need the response. Only idempotent methods are exposed, so retries can't create duplicates.
 - **Custom `ControllerError`** exception type that maps cleanly to JSON error responses.
-- **Generic `ThreadPool`** built on `std::jthread`.
-- **Graceful shutdown** via signal handlers wired into the Drogon event loop.
+- **Generic `ThreadPool`** built on `std::jthread`: tasks run in parallel, a throwing task doesn't kill its worker, and shutdown drains the queue.
+- **Graceful shutdown** on SIGINT/SIGTERM via Drogon's built-in handlers (stops accepting, finishes in-flight requests).
+- **Unit tests** (GoogleTest) for the thread pool, exception handler and request binding, run in CI as a plain build, under ASan + UBSan, and under TSan.
 - **Multi-stage Dockerfile** + `docker-compose.yaml` with a Postgres service.
-- **GitHub Actions** workflow that builds the Docker image on every push/PR.
+- **GitHub Actions**: tests (3 sanitizer configurations) and the Docker image on every push/PR; Doxygen API docs published to GitHub Pages.
 - **VS Code** launch + tasks config for one-key build/debug.
 
 ## Layout
@@ -31,8 +32,9 @@ app/
     core/                           # Config, advices, thread pool, exception handler
     custom_exceptions/              # ControllerError
     db/                             # DB ping helper
-    utils/                          # ApiClient, signals, time
+    utils/                          # ApiClient, time
     main.cpp
+tests/                              # GoogleTest unit tests
 CMakeLists.txt
 Dockerfile
 docker-compose.yaml
@@ -62,6 +64,28 @@ curl -X POST http://localhost:5555/api/v1/items \
 | `/api/v1/health`    | GET    | Liveness probe — always 200.                            |
 | `/api/v1/ready`     | GET    | Readiness probe — pings Postgres; 503 if it's down.     |
 | `/api/v1/items`     | POST   | Example handler with auto-bound JSON body + validation. |
+
+## Run the tests
+
+In Docker (same as CI):
+
+```bash
+docker build --target test .                                  # plain
+docker build --target test --build-arg SANITIZER=address .    # ASan + UBSan
+docker build --target test --build-arg SANITIZER=thread .     # TSan
+```
+
+Locally, with the dependencies and GoogleTest installed:
+
+```bash
+cmake -S . -B build -DBUILD_TESTS=ON -DSANITIZER=address   # SANITIZER is optional
+cmake --build build -j
+ctest --test-dir build --output-on-failure
+```
+
+## API docs
+
+`doxygen Doxyfile` writes HTML to `docs/html/` (not committed). CI publishes it to GitHub Pages on every push to `main`.
 
 ## Dependencies
 
