@@ -11,9 +11,11 @@
         {
             "label": "CMake Configure (Clang Debug)",
             "type": "shell",
-            "command": "echo running_configuration && CC=clang CXX=clang++ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_FLAGS_DEBUG='-g -O0'",
+            "command": "echo running_configuration && CC=clang CXX=clang++ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DBUILD_TESTS=ON -DCMAKE_CXX_FLAGS_DEBUG='-g -O0'",
             "group": "build",
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
         },
         {
             "label": "CMake Build (Debug)",
@@ -23,7 +25,17 @@
                 "kind": "build",
                 "isDefault": true
             },
-            "problemMatcher": ["$gcc"]
+            "problemMatcher": [
+                "$gcc"
+            ]
+        },
+        {
+            "label": "Run Tests",
+            "type": "shell",
+            "command": "ctest --test-dir build --output-on-failure",
+            "group": "test",
+            "dependsOn": "CMake Build (Debug)",
+            "problemMatcher": []
         },
         {
             "type": "cppbuild",
@@ -41,7 +53,9 @@
             "options": {
                 "cwd": "${fileDirname}"
             },
-            "problemMatcher": ["$gcc"],
+            "problemMatcher": [
+                "$gcc"
+            ],
             "group": "build",
             "detail": "Build active file using clang++ (Debug, no optimization)"
         }

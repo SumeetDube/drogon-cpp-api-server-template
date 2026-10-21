@@ -10,7 +10,7 @@ WORKDIR $APP_HOME
 RUN sed -i 's|archive.ubuntu.com|in.archive.ubuntu.com|g' /etc/apt/sources.list.d/ubuntu.sources && \
     apt-get update && apt-get install -y \
     clang build-essential git cmake \
-    uuid-dev libssl-dev libpq-dev libjsoncpp-dev zlib1g-dev && \
+    uuid-dev libssl-dev libpq-dev libjsoncpp-dev zlib1g-dev libgtest-dev && \
     rm -rf /var/lib/apt/lists/*
 
 ENV CC=clang
@@ -54,19 +54,30 @@ RUN git clone --branch v1.9.11 --depth 1 https://github.com/drogonframework/drog
     cmake --install build && \
     cd .. && rm -rf drogon
 
-# --- Build the application ---
+# --- Build the application + tests ---
+# SANITIZER is empty for the real image; CI also builds with "address" and "thread".
+# Declared after the third-party builds so changing it doesn't rebuild Drogon.
+ARG SANITIZER=""
+
 COPY . .
 
 RUN cmake -S . -B build \
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
-        -DCMAKE_BUILD_TYPE=Release && \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_TESTS=ON \
+        -DSANITIZER=${SANITIZER} && \
     cmake --build build -j$(nproc)
 
 # --- Collect runtime libs ---
 RUN mkdir -p /runtime_libs && \
     ldd /app/build/ApiServer | awk '{print $3}' | grep -E '^/' | xargs -I '{}' cp -n '{}' /runtime_libs/ || true && \
     cp -rv /usr/local/lib/*.so* /runtime_libs/ || true
+
+# --- Test Stage (docker build --target test .) ---
+# Not part of the default build: the runtime stage below only depends on "builder".
+FROM builder AS test
+RUN ctest --test-dir build --output-on-failure
 
 # --- Runtime Stage ---
 FROM ubuntu:24.04
